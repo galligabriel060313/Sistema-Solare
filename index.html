@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Atlante Astronomico 3D Cinematografico</title>
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #020208;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: #e2e8f0;
+        }
+
+        #webgl-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        header {
+            position: absolute;
+            top: 20px;
+            left: 25px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        header h1 {
+            font-size: 20px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #ffffff 0%, #00d2ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+        }
+
+        header p {
+            font-size: 11px;
+            color: #64748b;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-top: 3px;
+            font-weight: 600;
+        }
+
+        .planet-nav {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 10px;
+            background: rgba(8, 12, 24, 0.75);
+            padding: 10px 16px;
+            border-radius: 40px;
+            border: 1px solid rgba(0, 210, 255, 0.25);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 210, 255, 0.1);
+            max-width: 95vw;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .planet-nav::-webkit-scrollbar { display: none; }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background: linear-gradient(135deg, rgba(0, 210, 255, 0.3) 0%, rgba(59, 130, 246, 0.3) 100%);
+            border-color: #00d2ff;
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .controls-panel {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            z-index: 10;
+            display: flex;
+            gap: 10px;
+        }
+
+        .ctrl-btn {
+            padding: 10px 18px;
+            border-radius: 25px;
+            background: rgba(8, 12, 24, 0.75);
+            border: 1px solid rgba(0, 210, 255, 0.25);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        .ctrl-btn:hover {
+            border-color: #00d2ff;
+            color: #00d2ff;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 75px;
+            right: 25px;
+            width: 400px;
+            max-width: calc(100vw - 50px);
+            max-height: calc(100vh - 160px);
+            background: rgba(8, 12, 24, 0.88);
+            border: 1px solid rgba(0, 210, 255, 0.3);
+            border-radius: 20px;
+            padding: 24px;
+            z-index: 20;
+            backdrop-filter: blur(24px);
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.9), inset 0 0 20px rgba(0, 210, 255, 0.05);
+        }
+
+        .info-panel.visible {
+            display: block;
+            animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(0, 210, 255, 0.2);
+            padding-bottom: 12px;
+        }
+
+        .info-header h2 {
+            font-size: 24px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+
+        .info-header .type-tag {
+            font-size: 11px;
+            color: #00d2ff;
+            text-transform: uppercase;
+            font-weight: 700;
+            display: block;
+            margin-top: 2px;
+            letter-spacing: 1px;
+        }
+
+        .close-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(239, 68, 68, 0.8);
+            border-color: #ef4444;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .data-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 10px 12px;
+            border-radius: 12px;
+        }
+
+        .data-card .label {
+            font-size: 10px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            display: block;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .data-card .value {
+            font-size: 13px;
+            color: #00d2ff;
+            font-weight: 700;
+            margin-top: 2px;
+            display: block;
+        }
+
+        .info-section {
+            margin-bottom: 16px;
+        }
+
+        .info-section h3 {
+            font-size: 12px;
+            color: #38bdf8;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .info-section p {
+            font-size: 12px;
+            line-height: 1.6;
+            color: #cbd5e1;
+            white-space: pre-line;
+            text-align: justify;
+        }
+
+        @media (max-width: 600px) {
+            header h1 { font-size: 16px; }
+            header p { display: none; }
+            .info-panel {
+                top: auto;
+                bottom: 85px;
+                right: 4vw;
+                left: 4vw;
+                width: 92vw;
+                max-height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="webgl-container"></div>
+
+    <header>
+        <h1>3D Solar Engine HD</h1>
+        <p>Grafica Cinematografica & Fisica Orbitale</p>
+    </header>
+
+    <div class="controls-panel">
+        <button class="ctrl-btn" id="btn-reset">🏠 Panoramica</button>
+        <button class="ctrl-btn" id="btn-pause">⏸️ Pausa</button>
+    </div>
+
+    <div class="planet-nav" id="planet-nav">
+        <button class="nav-btn active" data-target="Sun">Sole</button>
+        <button class="nav-btn" data-target="Mercury">Mercurio</button>
+        <button class="nav-btn" data-target="Venus">Venere</button>
+        <button class="nav-btn" data-target="Earth">Terra</button>
+        <button class="nav-btn" data-target="Moon">Luna</button>
+        <button class="nav-btn" data-target="Mars">Marte</button>
+        <button class="nav-btn" data-target="Jupiter">Giove</button>
+        <button class="nav-btn" data-target="Saturn">Saturno</button>
+        <button class="nav-btn" data-target="Uranus">Urano</button>
+        <button class="nav-btn" data-target="Neptune">Nettuno</button>
+    </div>
+
+    <div class="info-panel" id="info-panel">
+        <div class="info-header">
+            <div>
+                <h2 id="p-name">Sole</h2>
+                <span class="type-tag" id="p-type">Stella Nana Gialla</span>
+            </div>
+            <button class="close-btn" id="btn-close-info" title="Chiudi scheda">✕</button>
+        </div>
+
+        <div class="data-grid">
+            <div class="data-card"><span class="label">Diametro</span><span class="value" id="p-diameter">-</span></div>
+            <div class="data-card"><span class="label">Distanza</span><span class="value" id="p-distance">-</span></div>
+            <div class="data-card"><span class="label">Orbita</span><span class="value" id="p-orbit">-</span></div>
+            <div class="data-card"><span class="label">Rotazione</span><span class="value" id="p-rotation">-</span></div>
+            <div class="data-card"><span class="label">Temperatura</span><span class="value" id="p-temp">-</span></div>
+            <div class="data-card"><span class="label">Lune / Satelliti</span><span class="value" id="p-moons">-</span></div>
+        </div>
+
+        <div class="info-section">
+            <h3>Inquadramento Scientifico</h3>
+            <p id="p-overview">-</p>
+        </div>
+        <div class="info-section">
+            <h3>Movimenti Planetari e Dinamica</h3>
+            <p id="p-geology">-</p>
+        </div>
+        <div class="info-section">
+            <h3>Esplorazione Spaziale</h3>
+            <p id="p-exploration">-</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        const CELESTIAL_DATA = {
+            Sun: {
+                name: "Sole", type: "Stella G2V (Nana Gialla)", diameter: "1.392.700 km", distance: "0 AU (Centro)",
+                orbit: "N/A (Centro)", rotation: "25 - 35 Giorni", temp: "5.500 °C / 15 Mln °C", moons: "8 Pianeti",
+                overview: "Il Sole contiene il 99,86% di tutta la massa conosciuta del Sistema Solare. È una gigante sfera di plasma ad altissima temperatura, alimentata nel suo nucleo profondo da reazioni continue di fusione nucleare che convertono l'idrogeno in elio.",
+                geology: "La fotosfera presenta macchie solari e protuberanze. Il Sole compie un movimento di rotazione sul proprio asse che varia tra i 25 giorni all'equatore e i 35 giorni verso i poli, poiché non è un corpo solido ma di plasma.",
+                exploration: "Incessantemente monitorato dalle sonde orbitali SOHO e SDO, ed esplorato a distanza ravvicinata dalla Parker Solar Probe."
+            },
+            Mercury: {
+                name: "Mercurio", type: "Pianeta Roccioso Terrestre", diameter: "4.879 km", distance: "57.9 Mio km (0.39 AU)",
+                orbit: "88 Giorni", rotation: "58.6 Giorni", temp: "Da -180 °C a +430 °C", moons: "0",
+                overview: "Mercurio è il pianeta più vicino al Sole e il più piccolo del Sistema Solare. Privo di un'atmosfera consistente, subisce le escursioni termiche più estreme del sistema.",
+                geology: "Superficie coperta da crateri da impatto. Esegue il movimento di rotazione in circa 58,6 giorni e il movimento di rivoluzione in soli 88 giorni.",
+                exploration: "Studiato dalla sonda MESSENGER e attualmente meta della missione congiunta BepiColombo."
+            },
+            Venus: {
+                name: "Venere", type: "Pianeta Roccioso Terrestre", diameter: "12.104 km", distance: "108.2 Mio km (0.72 AU)",
+                orbit: "225 Giorni", rotation: "-243 Giorni (Retrograda)", temp: "+465 °C (Costante)", moons: "0",
+                overview: "Pianeta caratterizzato da un effetto serra devastante dovuto alla densa atmosfera di CO2, con una pressione superficiale ben 92 volte superiore a quella terrestre.",
+                geology: "Il suo movimento di rotazione è retrogrado (avviene da est verso ovest) e dura ben 243 giorni terrestri, mentre il movimento di rivoluzione ne impiega 225.",
+                exploration: "Sfidata dalle sonde sovietiche Venera e mappata dalla sonda NASA Magellan."
+            },
+            Earth: {
+                name: "Terra", type: "Pianeta Roccioso Terrestre", diameter: "12.742 km", distance: "149.6 Mio km (1.00 AU)",
+                orbit: "365.25 Giorni", rotation: "23 Ore 56 Minuti", temp: "+15 °C (Media globale)", moons: "1 (La Luna)",
+                overview: "L'unico pianeta conosciuto in grado di ospitare la vita, situato nella zona abitabile del Sole dove l'acqua permane allo stato liquido.",
+                geology: "MOVIMENTO DI ROTAZIONE: È il giro che la Terra compie su se stessa attorno al proprio asse (inclinato di 23,5°), da ovest verso est, in circa 24 ore. Questo movimento è la causa diretta dell'alternarsi del GIORNO e della NOTTE.\n\nMOVIMENTO DI RIVOLUZIONE: È il percorso ellittico che la Terra compie attorno al Sole in 365 giorni e 6 ore (un anno solare). Insieme all'inclinazione dell'asse terrestre, determina l'alternarsi delle quattro STAGIONI.",
+                exploration: "Monitorata continuamente da una rete di satelliti scientifici in orbita."
+            },
+            Moon: {
+                name: "Luna", type: "Satellite Naturale Roccioso", diameter: "3.474 km", distance: "384.400 km dalla Terra",
+                orbit: "27.3 Giorni", rotation: "27.3 Giorni (Sincrona)", temp: "Da -130 °C a +120 °C", moons: "0 (È un satellite)",
+                overview: "Unico satellite naturale della Terra. Stabilizza l'inclinazione dell'asse terrestre e genera le maree negli oceani.",
+                geology: "MOVIMENTO DI ROTAZIONE: La Luna ruota sul proprio asse in circa 27,3 giorni.\n\nMOVIMENTO DI RIVOLUZIONE: La Luna compie un'orbita ellittica attorno al centro della Terra in 27,3 giorni. Poiché il tempo di rotazione è identico a quello di rivoluzione (rotazione sincrona), la Luna mostra sempre la STESSA FACCIA verso la Terra.\n\nMOVIMENTO DI TRASLAZIONE: È il movimento che la Luna compie attorno al Sole INSIEME alla Terra, seguendo la Terra lungo la sua orbita di rivoluzione.",
+                exploration: "Raggiunta dalle 6 missioni umane Apollo tra il 1969 e il 1972. Oggi al centro del programma Artemis."
+            },
+            Mars: {
+                name: "Marte", type: "Pianeta Roccioso Terrestre", diameter: "6.779 km", distance: "227.9 Mio km (1.52 AU)",
+                orbit: "687 Giorni", rotation: "24 Ore 37 Minuti", temp: "-63 °C (Media globale)", moons: "2 (Phobos e Deimos)",
+                overview: "Il 'Pianeta Rosso', il cui colore è dovuto all'ossido di ferro. Un tempo ricchissimo d'acqua liquida e laghi.",
+                geology: "Possiede un periodo di rotazione quasi identico a quello terrestre (24h 37m) e un movimento di rivoluzione di 687 giorni.",
+                exploration: "Esplorato da decine di missioni e dai rover Curiosity e Perseverance."
+            },
+            Jupiter: {
+                name: "Giove", type: "Gigante Gassoso", diameter: "139.822 km", distance: "778.5 Mio km (5.20 AU)",
+                orbit: "11.86 Anni Terrestri", rotation: "9 Ore 55 Minuti", temp: "-110 °C (Livello nubi)", moons: "95",
+                overview: "Il gigante del Sistema Solare con una massa pari a 2,5 volte tutti gli altri pianeti messi insieme.",
+                geology: "Esegue il movimento di rotazione più rapido di tutto il Sistema Solare (meno di 10 ore), mentre la rivoluzione richiede circa 11,86 anni.",
+                exploration: "Studiato dalle sonde Pioneer, Voyager, Galileo, Juno e JUICE."
+            },
+            Saturn: {
+                name: "Saturno", type: "Gigante Gassoso", diameter: "116.460 km", distance: "1.433 Mio km (9.58 AU)",
+                orbit: "29.45 Anni Terrestri", rotation: "10 Ore 33 Minuti", temp: "-140 °C", moons: "146",
+                overview: "Spettacolare per il suo maestoso sistema di anelli composto da ghiaccio e polveri.",
+                geology: "Ha una rotazione veloce di 10 ore e mezzo ed effettua la rivoluzione attorno al Sole in circa 29,5 anni.",
+                exploration: "Mappato per 13 anni dalla sonda Cassini-Huygens."
+            },
+            Uranus: {
+                name: "Urano", type: "Gigante Ghiacciato", diameter: "50.724 km", distance: "2.877 Mio km (19.2 AU)",
+                orbit: "84 Anni Terrestri", rotation: "-17 Ore 14 Min (Retrograda)", temp: "-195 °C", moons: "28",
+                overview: "Gigante ghiacciato con l'asse di rotazione inclinato quasi sul piano dell'orbita (98°).",
+                geology: "Effettua la rotazione in circa 17 ore e il movimento di rivoluzione in 84 anni terrestri.",
+                exploration: "Sorvolato dalla Voyager 2 nel 1986."
+            },
+            Neptune: {
+                name: "Nettuno", type: "Gigante Ghiacciato", diameter: "49.244 km", distance: "4.503 Mio km (30.1 AU)",
+                orbit: "164.8 Anni Terrestri", rotation: "16 Ore 6 Minuti", temp: "-200 °C", moons: "16",
+                overview: "Pianeta blu profondo spazzato dai venti più veloci del Sistema Solare (oltre 2.100 km/h).",
+                geology: "Ha un movimento di rotazione di 16 ore e compie una rivoluzione completa in circa 165 anni terrestri.",
+                exploration: "Sorvolato dalla Voyager 2 nel 1989."
+            }
+        };
+
+        const ORBIT_BASE_SPEED = (Math.PI * 2) / (30 * 60);
+
+        const PLANET_CONFIG = [
+            { id: "Mercury", size: 0.8, dist: 18, period: 0.24, color: 0xa0a0a0 },
+            { id: "Venus", size: 1.4, dist: 26, period: 0.61, color: 0xe3bb76 },
+            { id: "Earth", size: 1.5, dist: 36, period: 1.00, color: 0x1d3557, hasMoon: true, atmosphere: true },
+            { id: "Mars", size: 1.1, dist: 48, period: 1.88, color: 0xc1440e },
+            { id: "Jupiter", size: 3.8, dist: 68, period: 11.86, color: 0xb07f35 },
+            { id: "Saturn", size: 3.2, dist: 90, period: 29.45, color: 0xe2bf7d, ring: true },
+            { id: "Uranus", size: 2.2, dist: 112, period: 84.00, color: 0x4b70dd },
+            { id: "Neptune", size: 2.1, dist: 132, period: 164.8, color: 0x274687 }
+        ];
+
+        let scene, camera, renderer, controls;
+        let planets = {};
+        let isPaused = false;
+        let activeTarget = "Sun";
+
+        // Generatore di Texture Procedurale ad Alta Definizione (1024x512)
+        function createHDTexture(cfg) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            if (cfg.id === 'Earth') {
+                // Oceani Profondi
+                ctx.fillStyle = '#0f2042';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Continenti Verdi e Marroni
+                ctx.fillStyle = '#2d6a4f';
+                for (let i = 0; i < 60; i++) {
+                    ctx.beginPath();
+                    ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 90 + 30, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = '#52b788';
+                for (let i = 0; i < 40; i++) {
+                    ctx.beginPath();
+                    ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 50 + 10, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Calotte Polari
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, 35);
+                ctx.fillRect(0, canvas.height - 35, canvas.width, 35);
+
+            } else if (cfg.id === 'Jupiter') {
+                // Fasce Atmosferiche di Giove
+                const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                grad.addColorStop(0, '#9c6644');
+                grad.addColorStop(0.2, '#e6ccb2');
+                grad.addColorStop(0.4, '#7f4f24');
+                grad.addColorStop(0.5, '#ede0d4');
+                grad.addColorStop(0.7, '#a68a64');
+                grad.addColorStop(0.9, '#ddb892');
+                grad.addColorStop(1, '#7f4f24');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Grande Macchia Rossa
+                ctx.fillStyle = '#b7094c';
+                ctx.beginPath();
+                ctx.ellipse(650, 320, 70, 40, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (cfg.id === 'Mars') {
+                ctx.fillStyle = '#a7333f';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#74151d';
+                for (let i = 0; i < 80; i++) {
+                    ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 60, Math.random() * 30);
+                }
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, 15);
+                ctx.fillRect(0, canvas.height - 15, canvas.width, 15);
+
+            } else {
+                ctx.fillStyle = '#' + cfg.color.toString(16).padStart(6, '0');
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                for (let i = 0; i < 4000; i++) {
+                    ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 4, 4);
+                }
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function init() {
+            const container = document.getElementById('webgl-container');
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 55, 130);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 650;
+            controls.minDistance = 3;
+
+            // Illuminazione
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.PointLight(0xfffaed, 1.8, 900);
+            scene.add(sunLight);
+
+            // Sfondo Stellare e Nebulosa
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = new Float32Array(5000 * 3);
+            for (let i = 0; i < 15000; i++) starPos[i] = (Math.random() - 0.5) * 1400;
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.9, transparent: true, opacity: 0.8 })));
+
+            // Sole Cinematografico
+            const sunGeo = new THREE.SphereGeometry(6.8, 64, 64);
+            const sunCanvas = document.createElement('canvas');
+            sunCanvas.width = 512; sunCanvas.height = 256;
+            const sCtx = sunCanvas.getContext('2d');
+            sCtx.fillStyle = '#ff9100'; sCtx.fillRect(0, 0, sunCanvas.width, sunCanvas.height);
+            for (let i = 0; i < 4000; i++) {
+                sCtx.fillStyle = Math.random() > 0.5 ? '#ff3d00' : '#ffea00';
+                sCtx.fillRect(Math.random() * sunCanvas.width, Math.random() * sunCanvas.height, 4, 4);
+            }
+            const sunTexture = new THREE.CanvasTexture(sunCanvas);
+            const sunMesh = new THREE.Mesh(sunGeo, new THREE.MeshBasicMaterial({ map: sunTexture }));
+
+            // Corona Infuocata
+            const corona = new THREE.Mesh(
+                new THREE.SphereGeometry(7.8, 32, 32),
+                new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, opacity: 0.35, side: THREE.BackSide })
+            );
+            sunMesh.add(corona);
+            scene.add(sunMesh);
+            planets['Sun'] = { mesh: sunMesh, dist: 0 };
+
+            // Pianeti
+            PLANET_CONFIG.forEach(cfg => {
+                // Traccia Orbita Neon
+                const orbitGeo = new THREE.RingGeometry(cfg.dist - 0.08, cfg.dist + 0.08, 128);
+                const orbitMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff, side: THREE.DoubleSide, transparent: true, opacity: 0.12 });
+                const orbitMesh = new THREE.Mesh(orbitGeo, orbitMat);
+                orbitMesh.rotation.x = Math.PI / 2;
+                scene.add(orbitMesh);
+
+                const pGeo = new THREE.SphereGeometry(cfg.size, 32, 32);
+                const pTexture = createHDTexture(cfg);
+                const pMat = new THREE.MeshStandardMaterial({ 
+                    map: pTexture, 
+                    roughness: 0.7,
+                    metalness: 0.1
+                });
+
+                const pMesh = new THREE.Mesh(pGeo, pMat);
+                if (cfg.id === 'Earth') pMesh.rotation.z = 0.41;
+                scene.add(pMesh);
+
+                // Alone Atmosferico Terrestre
+                if (cfg.atmosphere) {
+                    const atmosGeo = new THREE.SphereGeometry(cfg.size * 1.08, 32, 32);
+                    const atmosMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff, transparent: true, opacity: 0.22, side: THREE.BackSide });
+                    pMesh.add(new THREE.Mesh(atmosGeo, atmosMat));
+                }
+
+                // Anelli di Saturno
+                if (cfg.ring) {
+                    const rGeo = new THREE.RingGeometry(cfg.size * 1.3, cfg.size * 2.4, 64);
+                    const rMat = new THREE.MeshStandardMaterial({ color: 0xe2bf7d, side: THREE.DoubleSide, transparent: true, opacity: 0.75, roughness: 0.8 });
+                    const ringMesh = new THREE.Mesh(rGeo, rMat);
+                    ringMesh.rotation.x = Math.PI / 2.2;
+                    pMesh.add(ringMesh);
+                }
+
+                // Luna e Orbita Lunare
+                if (cfg.hasMoon) {
+                    const moonOrbitGeo = new THREE.RingGeometry(2.8, 2.9, 64);
+                    const moonOrbitMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff, side: THREE.DoubleSide, transparent: true, opacity: 0.25 });
+                    const moonOrbitMesh = new THREE.Mesh(moonOrbitGeo, moonOrbitMat);
+                    moonOrbitMesh.rotation.x = Math.PI / 2;
+                    pMesh.add(moonOrbitMesh);
+
+                    const moonCanvas = document.createElement('canvas');
+                    moonCanvas.width = 256; moonCanvas.height = 128;
+                    const mCtx = moonCanvas.getContext('2d');
+                    mCtx.fillStyle = '#8d99ae'; mCtx.fillRect(0, 0, moonCanvas.width, moonCanvas.height);
+                    for (let i = 0; i < 600; i++) {
+                        mCtx.fillStyle = 'rgba(0,0,0,0.25)';
+                        mCtx.fillRect(Math.random() * moonCanvas.width, Math.random() * moonCanvas.height, 3, 3);
+                    }
+                    const moonTex = new THREE.CanvasTexture(moonCanvas);
+
+                    const moonMesh = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.38, 16, 16), 
+                        new THREE.MeshStandardMaterial({ map: moonTex, roughness: 0.9 })
+                    );
+                    pMesh.add(moonMesh);
+                    planets['Moon'] = { mesh: moonMesh, parent: pMesh };
+                }
+
+                const angularSpeed = ORBIT_BASE_SPEED / cfg.period;
+                planets[cfg.id] = { mesh: pMesh, speed: angularSpeed, dist: cfg.dist, angle: Math.random() * Math.PI * 2 };
+            });
+
+            // Selezione Pianeti con Raycaster
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            window.addEventListener('pointerdown', (e) => {
+                if (e.target.closest('#info-panel') || e.target.closest('#planet-nav') || e.target.closest('.controls-panel')) return;
+
+                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const testMeshes = Object.keys(planets).map(k => planets[k].mesh);
+                const intersects = raycaster.intersectObjects(testMeshes);
+
+                if (intersects.length > 0) {
+                    const hit = intersects[0].object;
+                    Object.keys(planets).forEach(k => {
+                        if (planets[k].mesh === hit) {
+                            focusObject(k);
+                        }
+                    });
+                }
+            });
+
+            // UI
+            document.getElementById('planet-nav').addEventListener('click', (e) => {
+                if (e.target.classList.contains('nav-btn')) focusObject(e.target.getAttribute('data-target'));
+            });
+
+            document.getElementById('btn-close-info').addEventListener('click', () => {
+                document.getElementById('info-panel').classList.remove('visible');
+            });
+
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                activeTarget = "Sun";
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.nav-btn[data-target="Sun"]').classList.add('active');
+                document.getElementById('info-panel').classList.remove('visible');
+            });
+
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                isPaused = !isPaused;
+                document.getElementById('btn-pause').textContent = isPaused ? '▶️ Avvia' : '⏸️ Pausa';
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            animate();
+        }
+
+        function focusObject(targetKey) {
+            activeTarget = targetKey;
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-target') === targetKey));
+
+            const d = CELESTIAL_DATA[targetKey];
+            if (d) {
+                document.getElementById('p-name').textContent = d.name;
+                document.getElementById('p-type').textContent = d.type;
+                document.getElementById('p-diameter').textContent = d.diameter;
+                document.getElementById('p-distance').textContent = d.distance;
+                document.getElementById('p-orbit').textContent = d.orbit;
+                document.getElementById('p-rotation').textContent = d.rotation;
+                document.getElementById('p-temp').textContent = d.temp;
+                document.getElementById('p-moons').textContent = d.moons;
+                document.getElementById('p-overview').textContent = d.overview;
+                document.getElementById('p-geology').textContent = d.geology;
+                document.getElementById('p-exploration').textContent = d.exploration;
+                document.getElementById('info-panel').classList.add('visible');
+            }
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            if (!isPaused) {
+                PLANET_CONFIG.forEach(cfg => {
+                    const p = planets[cfg.id];
+                    if (p) {
+                        p.angle += p.speed;
+                        p.mesh.position.x = Math.cos(p.angle) * p.dist;
+                        p.mesh.position.z = Math.sin(p.angle) * p.dist;
+                        p.mesh.rotation.y += 0.01;
+                    }
+                });
+
+                if (planets['Moon']) {
+                    const t = time * 0.002;
+                    planets['Moon'].mesh.position.set(Math.cos(t) * 2.8, 0, Math.sin(t) * 2.8);
+                    planets['Moon'].mesh.rotation.y = t;
+                }
+            }
+
+            if (activeTarget !== 'Sun' && planets[activeTarget]) {
+                const targetMesh = planets[activeTarget].mesh;
+                const pos = new THREE.Vector3();
+                targetMesh.getWorldPosition(pos);
+                controls.target.copy(pos);
+            } else if (activeTarget === 'Sun') {
+                controls.target.set(0, 0, 0);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
